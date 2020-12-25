@@ -28,6 +28,14 @@ class Bot(commands.Bot):
         async def total(ctx: commands.Context) -> None:
             await self.__on_total_command(ctx)
 
+        @self.command()
+        async def message(ctx: commands.Context) -> None:
+            await self.__on_message_command(ctx)
+
+        @self.command()
+        async def reaction(ctx: commands.Context) -> None:
+            await self.__on_reaction_command(ctx)
+
 
     async def __on_message(self, message: discord.Message) -> None:
         """
@@ -65,6 +73,65 @@ class Bot(commands.Bot):
         """
         self.__data_manager.regist_reactions(payload.message_id, payload.user_id, payload.emoji.id)
 
+    
+    def __generate_ranking_embed(self, title: str, ranking: List[Tuple[int, int]]) -> discord.Embed:
+        """
+        ランキングの表示のためのEmbedを生成する
+
+        Parameters:
+        ====================
+        title : str
+            Embedのタイトル
+
+        ranking : List[Tuple[int, int]]
+            https://discordpy.readthedocs.io/ja/latest/ext/commands/api.html#discord.ext.commands.Context
+
+        Returns:
+        ====================
+        discord.Embed
+            ランキングを載せたEmbed
+        """
+        # Embedの作成
+        embed = discord.Embed(title=title, color=0xff0000)
+        
+        if len(ranking) == 0:
+            # カウントされた絵文字がなかった場合
+            embed.set_footer(text=u'絵文字はまだカウントされていません')
+            return embed
+
+        # 順位とカウンタ
+        rank = 1
+        counter = 0
+
+        # 前の絵文字の個数
+        prev_count = 0
+        
+        for (emoji_id, count) in ranking:
+            # Emojiを取得
+            emoji = self.get_emoji(emoji_id)
+
+            if emoji is None:
+                # サーバー上に存在しないスタンプであれば無視
+                # TODO - サーバー上に存在しなくなったスタンプの履歴を削除するか検討
+                continue
+
+            # カウンタは、絵文字が存在していれば無条件に増やす
+            counter += 1
+
+            if count != prev_count:
+                # 同立でなければ、順位とカウンタの値をそろえる
+                rank = counter
+
+            # Embedに順位の情報を追加
+            embed.add_field(name=u'{}位'.format(rank),
+                            value=u'{}\n{}回'.format(self.get_emoji(emoji_id), count),
+                            inline=True)
+
+            # prev_countを上書き
+            prev_count = count
+        
+        return embed
+
 
     async def __on_help_command(self, ctx: commands.Context) -> None:
         """
@@ -83,6 +150,16 @@ class Bot(commands.Bot):
                         value=u'今までに使用されたカスタム絵文字の統計をランキング形式で表示する。',
                         inline=True)
 
+        # messageコマンドの説明
+        embed.add_field(name='command: ?message',
+                        value=u'メッセージ内で使用された絵文字のランキングを表示する。',
+                        inline=True)
+
+        # reactionコマンドの説明
+        embed.add_field(name='command: ?reaction',
+                        value=u'リアクションとして使用された絵文字のランキングを表示する。',
+                        inline=True)
+
         await ctx.send(embed=embed)
 
 
@@ -96,47 +173,33 @@ class Bot(commands.Bot):
         ctx : commands.Context
             https://discordpy.readthedocs.io/ja/latest/ext/commands/api.html#discord.ext.commands.Context
         """
-        # Embedの作成
-        embed = discord.Embed(title=':crown: 総合ランキング', color=0xff0000)
+        await ctx.send(embed=self.__generate_ranking_embed(":crown: 総合ランキング",
+                                                    self.__data_manager.get_total()))
 
-        # 統計の取得
-        total = self.__data_manager.get_total()
-        
-        if len(total) == 0:
-            # カウントされた絵文字がなかった場合
-            embed.set_footer(text=u'絵文字はまだカウントされていません')
-            await ctx.send(embed=embed)
-            return
 
-        # 順位とカウンタ
-        rank = 1
-        counter = 0
+    async def __on_message_command(self, ctx: commands.Context) -> None:
+        """
+        ?message
+        がメッセージとして送信された場合に呼び出されるメソッド。
 
-        # 前の絵文字の個数
-        prev_count = 0
-        
-        for (emoji_id, count) in total:
-            # Emojiを取得
-            emoji = self.get_emoji(emoji_id)
+        Parameters:
+        ====================
+        ctx : commands.Context
+            https://discordpy.readthedocs.io/ja/latest/ext/commands/api.html#discord.ext.commands.Context
+        """
+        await ctx.send(embed=self.__generate_ranking_embed(":crown: メッセージ内Emojiランキング",
+                                                    self.__data_manager.get_message_ranking()))
 
-            if emoji is None:
-                # サーバー上に存在しないスタンプであれば無視
-                # TODO - サーバー上に存在しなくなったスタンプの履歴を削除するか検討
-                continue
 
-            # カウンタは、絵文字が存在していれば無条件に増やす
-            counter += 1
+    async def __on_reaction_command(self, ctx: commands.Context) -> None:
+        """
+        ?reaction
+        がメッセージとして送信された場合に呼び出されるメソッド。
 
-            if count != prev_count:
-                # 同立でなければ、順位とカウンタの値をそろえる
-                rank = counter
-
-            # Embedに順位の情報を追加
-            embed.add_field(name=u'{}位'.format(rank),
-                            value=u'{}\n{}回使用'.format(self.get_emoji(emoji_id), count),
-                            inline=True)
-
-            # prev_countを上書き
-            prev_count = count
-        
-        await ctx.send(embed=embed)
+        Parameters:
+        ====================
+        ctx : commands.Context
+            https://discordpy.readthedocs.io/ja/latest/ext/commands/api.html#discord.ext.commands.Context
+        """
+        await ctx.send(embed=self.__generate_ranking_embed(":crown: リアクションランキング",
+                                                    self.__data_manager.get_reaction_ranking()))

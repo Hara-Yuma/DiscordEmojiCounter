@@ -1,7 +1,18 @@
 import sqlite3
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from typing import List, Tuple
+
+class UsagePattern(Enum):
+    """
+    絵文字が使用されるパターン
+    """
+    # メッセージ内に含まれているパターン
+    MESSAGE = 'message',
+
+    # リアクションとしてメッセージにつけられるパターン
+    REACTION = 'reaction'
 
 class DataManager:
     def __init__(self, data_dir: str) -> None:
@@ -152,7 +163,94 @@ class DataManager:
         c.execute("""SELECT emoji_id, COUNT(emoji_id) FROM emoji_histories GROUP BY emoji_id ORDER BY COUNT(emoji_id) DESC""")
         total = c.fetchall()
 
-        conn.commit()
+        conn.close()
+
+        return total
+
+
+    def get_ranking(self, usage_pattern: UsagePattern=None) -> List[Tuple[int, int]]:
+        """
+        絵文字の使用回数のランキングを取得する。
+
+        Parameters:
+        ====================
+        usage_pattern : UsagePattern
+            絵文字が使用されるパターン。
+            指定しなければ全てのパターンのランキングを取得する。
+
+        Returns:
+        ====================
+        List[Tuple[int, int]]
+            List[(絵文字のID, 絵文字が使用された数)]
+            回数が多い順にソートされている。
+        """
+        conn = sqlite3.connect(self.__path)
+        c = conn.cursor()
+
+        total = []
+
+        
+
+        c.execute("""SELECT emoji_id, COUNT(emoji_id) 
+                     FROM emoji_histories WHERE usage_pattern=\"message\"
+                     {}
+                     GROUP BY emoji_id
+                     ORDER BY COUNT(emoji_id)
+                     DESC""")
+        total = c.fetchall()
+
+        conn.close()
+
+        return total
+
+
+    def get_message_ranking(self) -> List[Tuple[int, int]]:
+        """
+        メッセージに含まれていた絵文字のランキングと使用回数を表示する。
+
+        Returns:
+        ====================
+        Dict[int, int]
+            key:
+                絵文字のID
+
+            value:
+                絵文字が使用された数
+        """
+        conn = sqlite3.connect(self.__path)
+        c = conn.cursor()
+
+        total = []
+
+        c.execute("""SELECT emoji_id, COUNT(emoji_id) FROM emoji_histories WHERE usage_pattern=\"message\" GROUP BY emoji_id ORDER BY COUNT(emoji_id) DESC""")
+        total = c.fetchall()
+
+        conn.close()
+
+        return total
+
+
+    def get_reaction_ranking(self) -> List[Tuple[int, int]]:
+        """
+        リアクションとして使用された絵文字のランキングと使用回数を表示する。
+
+        Returns:
+        ====================
+        Dict[int, int]
+            key:
+                絵文字のID
+
+            value:
+                絵文字が使用された数
+        """
+        conn = sqlite3.connect(self.__path)
+        c = conn.cursor()
+
+        total = []
+
+        c.execute("""SELECT emoji_id, COUNT(emoji_id) FROM emoji_histories WHERE usage_pattern=\"reaction\" GROUP BY emoji_id ORDER BY COUNT(emoji_id) DESC""")
+        total = c.fetchall()
+
         conn.close()
 
         return total
