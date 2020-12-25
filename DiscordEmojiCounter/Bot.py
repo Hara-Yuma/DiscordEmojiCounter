@@ -97,7 +97,7 @@ class Bot(commands.Bot):
             https://discordpy.readthedocs.io/ja/latest/ext/commands/api.html#discord.ext.commands.Context
         """
         # Embedの作成
-        embed = discord.Embed(title=':crown: 総合ランキング', color=0xff000)
+        embed = discord.Embed(title=':crown: 総合ランキング', color=0xff0000)
 
         # 統計の取得
         total = self.__data_manager.get_total()
@@ -107,11 +107,36 @@ class Bot(commands.Bot):
             embed.set_footer(text=u'絵文字はまだカウントされていません')
             await ctx.send(embed=embed)
             return
+
+        # 順位とカウンタ
+        rank = 1
+        counter = 0
+
+        # 前の絵文字の個数
+        prev_count = 0
         
-        for i, (emoji_id, count) in enumerate(total):
+        for (emoji_id, count) in total:
+            # Emojiを取得
+            emoji = self.get_emoji(emoji_id)
+
+            if emoji is None:
+                # サーバー上に存在しないスタンプであれば無視
+                # TODO - サーバー上に存在しなくなったスタンプの履歴を削除するか検討
+                continue
+
+            # カウンタは、絵文字が存在していれば無条件に増やす
+            counter += 1
+
+            if count != prev_count:
+                # 同立でなければ、順位とカウンタの値をそろえる
+                rank = counter
+
             # Embedに順位の情報を追加
-            embed.add_field(name=u'{}位'.format(i+1),
+            embed.add_field(name=u'{}位'.format(rank),
                             value=u'{}\n{}回使用'.format(self.get_emoji(emoji_id), count),
                             inline=True)
+
+            # prev_countを上書き
+            prev_count = count
         
         await ctx.send(embed=embed)

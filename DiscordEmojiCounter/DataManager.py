@@ -117,8 +117,15 @@ class DataManager:
 
         date = self.__get_date()
 
-        c.execute(f"""INSERT INTO emoji_histories VALUES
-                        ({date}, {message_id}, {member_id}, {emoji_id}, \"reaction\")""")
+        try:
+            c.execute(f"""INSERT INTO emoji_histories VALUES
+                            ({date}, {message_id}, {member_id}, {emoji_id}, \"reaction\")""")
+        except sqlite3.IntegrityError:
+            """
+            同じメッセージに、同じ人物から同じ絵文字がつけられた場合、登録することができない。
+            ( 絵文字連打で回数が上昇するのを防ぐため )
+            """
+            pass
 
         conn.commit()
         conn.close()
